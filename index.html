@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>证书查询系统</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 50%, #e0f2f1 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 24px 16px;
+  }
+  .container { width: 100%; max-width: 420px; }
+  .header { text-align: center; margin-bottom: 20px; }
+  .header .icon { font-size: 44px; }
+  .header h1 { font-size: 22px; color: #1b5e20; margin-top: 8px; }
+  .header p { font-size: 13px; color: #667766; margin-top: 6px; }
+  .card {
+    background: rgba(255,255,255,0.9);
+    border-radius: 16px;
+    padding: 24px 20px;
+    box-shadow: 0 4px 20px rgba(27,94,32,0.10);
+  }
+  .card label { display: block; font-size: 14px; color: #33691e; margin: 14px 0 6px; font-weight: 600; }
+  .card label:first-child { margin-top: 0; }
+  .card input {
+    width: 100%; padding: 12px 14px; font-size: 16px;
+    border: 1.5px solid #c8e6c9; border-radius: 10px; outline: none;
+    background: #fff; transition: border-color .2s;
+  }
+  .card input:focus { border-color: #43a047; }
+  .btn {
+    width: 100%; margin-top: 20px; padding: 13px; font-size: 16px;
+    color: #fff; background: linear-gradient(135deg, #43a047, #2e7d32);
+    border: none; border-radius: 10px; cursor: pointer; font-weight: 600;
+  }
+  .btn:disabled { opacity: .6; }
+  .tip { font-size: 12px; color: #889988; margin-top: 12px; text-align: center; line-height: 1.6; }
+  .result { margin-top: 18px; }
+  .result.hide { display: none; }
+  .result .fail {
+    background: #fff3e0; border: 1px solid #ffcc80; color: #e65100;
+    border-radius: 12px; padding: 16px; font-size: 14px; text-align: center; line-height: 1.7;
+  }
+  .result .cert {
+    background: linear-gradient(135deg, #ffffff, #f8fff8);
+    border: 2px solid #a5d6a7; border-radius: 14px; overflow: hidden;
+  }
+  .cert .cert-head {
+    background: linear-gradient(135deg, #43a047, #2e7d32);
+    color: #fff; text-align: center; padding: 16px 12px;
+  }
+  .cert .cert-head .name { font-size: 19px; font-weight: 700; }
+  .cert .cert-head .sub { font-size: 12px; opacity: .9; margin-top: 4px; letter-spacing: 2px; }
+  .cert table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .cert table td { padding: 10px 14px; border-bottom: 1px dashed #e0e0e0; }
+  .cert table td:first-child { color: #667766; width: 88px; white-space: nowrap; }
+  .cert table td:last-child { color: #223322; font-weight: 500; word-break: break-all; }
+  .cert .cert-foot {
+    text-align: center; padding: 12px; font-size: 12px; color: #8a8a8a;
+    background: #f6fbf6;
+  }
+  .foot { text-align: center; margin-top: 22px; font-size: 12px; color: #9aa89a; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="icon">🏅</div>
+    <h1>证书查询系统</h1>
+    <p>输入姓名和身份证号即可查询本人的活动证书</p>
+  </div>
+
+  <div class="card">
+    <label>姓名</label>
+    <input id="name" type="text" placeholder="请输入证书上的姓名" autocomplete="off">
+
+    <label>身份证号</label>
+    <input id="idcard" type="text" maxlength="18" placeholder="18 位身份证号码" autocomplete="off">
+
+    <button class="btn" id="btn" onclick="doQuery()">查 询</button>
+    <div class="tip">仅支持查询证书数据库中已登记的人员<br>身份信息仅用于本地加密比对，不会被上传或保存</div>
+
+    <div class="result hide" id="result"></div>
+  </div>
+
+  <div class="foot">数据加密存储 · 24 小时在线</div>
+</div>
+
+<script src="data.js"></script>
+<script>
+async function sha256Hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function doQuery() {
+  const name = document.getElementById('name').value.trim();
+  const idcard = document.getElementById('idcard').value.trim().toUpperCase();
+  const box = document.getElementById('result');
+  const btn = document.getElementById('btn');
+  box.classList.remove('hide');
+
+  if (!name || !idcard) { box.innerHTML = '<div class="fail">请填写完整姓名和身份证号</div>'; return; }
+  if (idcard.length !== 18) { box.innerHTML = '<div class="fail">身份证号应为 18 位，请检查后重试</div>'; return; }
+
+  btn.disabled = true;
+  try {
+    const key = await sha256Hex(SALT + '|' + name + '|' + idcard);
+    const cert = CERT_DATA[key];
+
+    if (!cert) {
+      box.innerHTML = '<div class="fail">❌ 未查询到证书记录<br><span style="font-size:12px">请确认姓名、身份证号与报名时一致；如仍有问题，请联系活动组织方。</span></div>';
+      return;
+    }
+
+    let rows = '';
+    for (const [k, v] of Object.entries(cert)) {
+      if (v) rows += '<tr><td>' + k + '</td><td>' + v + '</td></tr>';
+    }
+    box.innerHTML =
+      '<div class="cert">' +
+        '<div class="cert-head"><div class="name">证书查证通过</div><div class="sub">CERTIFICATE VERIFIED</div></div>' +
+        '<table>' + rows + '</table>' +
+        '<div class="cert-foot">✅ 以上信息真实有效 · 可用于综合素质评价材料</div>' +
+      '</div>';
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.getElementById('idcard').addEventListener('keyup', e => { if (e.key === 'Enter') doQuery(); });
+document.getElementById('name').addEventListener('keyup', e => { if (e.key === 'Enter') doQuery(); });
+</script>
+</body>
+</html>
