@@ -112,23 +112,30 @@ async function doQuery() {
   btn.disabled = true;
   try {
     const key = await sha256Hex(SALT + '|' + name + '|' + idcard);
-    const cert = CERT_DATA[key];
+    const certs = CERT_DATA[key];
 
-    if (!cert) {
+    if (!certs || !certs.length) {
       box.innerHTML = '<div class="fail">❌ 未查询到证书记录<br><span style="font-size:12px">请确认姓名、身份证号与报名时一致；如仍有问题，请联系活动组织方。</span></div>';
       return;
     }
 
-    let rows = '';
-    for (const [k, v] of Object.entries(cert)) {
-      if (v) rows += '<tr><td>' + k + '</td><td>' + v + '</td></tr>';
-    }
-    box.innerHTML =
-      '<div class="cert">' +
-        '<div class="cert-head"><div class="name">证书查证通过</div><div class="sub">CERTIFICATE VERIFIED</div></div>' +
-        '<table>' + rows + '</table>' +
-        '<div class="cert-foot">✅ 以上信息真实有效 · 可用于综合素质评价材料</div>' +
-      '</div>';
+    const certCard = cert => {
+      let rows = '';
+      for (const [k, v] of Object.entries(cert)) {
+        if (v) rows += '<tr><td>' + k + '</td><td>' + v + '</td></tr>';
+      }
+      return '<div class="cert" style="margin-bottom:14px">' +
+          '<div class="cert-head"><div class="name">证书查证通过</div><div class="sub">CERTIFICATE VERIFIED</div></div>' +
+          '<table>' + rows + '</table>' +
+          '<div class="cert-foot">✅ 以上信息真实有效 · 可用于综合素质评价材料</div>' +
+        '</div>';
+    };
+
+    const multi = certs.length > 1
+      ? '<div class="fail" style="background:#e8f5e9;border-color:#a5d6a7;color:#1b5e20;margin-bottom:14px">📋 查询到 ' + certs.length + ' 条证书记录</div>'
+      : '';
+
+    box.innerHTML = multi + certs.map(certCard).join('');
   } finally {
     btn.disabled = false;
   }
